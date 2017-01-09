@@ -42,6 +42,17 @@ module.exports = function(grunt) {
                 dest: 'build/nv.d3.js'
             }
         },
+        connect: {
+            server: {
+                options: {
+                    hostname: 'localhost',
+                    port: 8000,
+                    base: ['.'],
+                    livereload: true,
+                    open: true
+                }
+            }
+        },
         uglify: {
             options: {
                 sourceMap: true,
@@ -77,8 +88,11 @@ module.exports = function(grunt) {
             }
         },
         watch: {
+            options: {
+                livereload: true
+            },
             js: {
-                files: ["src/**/*.js"],
+                files: ['src/**/*.js', 'examples/*.html'],
                 tasks: ['concat']
             }
         },
@@ -152,6 +166,7 @@ module.exports = function(grunt) {
         }
     });
 
+    grunt.loadNpmTasks('grunt-contrib-connect');
     grunt.loadNpmTasks('grunt-contrib-watch');
     grunt.loadNpmTasks('grunt-contrib-concat');
     grunt.loadNpmTasks('grunt-contrib-jshint');
@@ -163,6 +178,7 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-text-replace');
 
     grunt.registerTask('default', ['concat', 'copy', 'postcss', 'karma:unit']);
+    grunt.registerTask('examples', ['concat', 'connect:server', 'watch']);
     grunt.registerTask('production', ['concat', 'uglify', 'copy', 'postcss', 'cssmin', 'replace']);
     grunt.registerTask('release', ['production']);
     grunt.registerTask('lint', ['jshint']);
