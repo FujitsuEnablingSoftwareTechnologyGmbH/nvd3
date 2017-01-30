@@ -325,16 +325,18 @@ nv.models.scatter = function() {
                             top: y(getY(point, d.point)) + box.top + scrollTop + margin.top + 10
                         };
 
-                        mDispatch({
-                            point: point,
-                            series: series,
-                            pos: pos,
-                            relativePos: [x(getX(point, d.point)) + margin.left, y(getY(point, d.point)) + margin.top],
-                            seriesIndex: d.series,
-                            pointIndex: d.point,
-                            event: d3.event,
-                            element: el
-                        });
+                        if (point.value !== undefined) {
+                            mDispatch({
+                                point: point,
+                                series: series,
+                                pos: pos,
+                                relativePos: [x(getX(point, d.point)) + margin.left, y(getY(point, d.point)) + margin.top],
+                                seriesIndex: d.series,
+                                pointIndex: d.point,
+                                event: d3.event,
+                                element: el
+                            });
+                        }
                     };
 
                     pointPaths
