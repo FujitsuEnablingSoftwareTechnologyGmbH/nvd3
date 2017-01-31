@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.5-dev (https://github.com/novus/nvd3) 2016-12-08 */
+/* nvd3 version 1.8.5-dev.20170131 (https://github.com/novus/nvd3) 2017-01-31 */
 (function(){
 
 // set up main nv object
@@ -5516,14 +5516,30 @@ nv.models.historicalBar = function() {
             nv.utils.initSVG(container);
 
             // Setup Scales
-            x.domain(xDomain || d3.extent(data[0].values.map(getX).concat(forceX) ));
+            // remap and flatten the data for use in calculating the scales' domains
+            var seriesData = (xDomain && yDomain) ? [] : // if we know xDomain and yDomain, no need to calculate
+                data.map(function(d, idx) {
+                    return d.values.map(function(d,i) {
+                        return { x: getX(d,i), y: getY(d,i), y0: d.y0, y1: d.y1, idx:idx }
+                    })
+                });
 
+            var _getX = function (d) { return d.x; };
+            var _getY = function (d) { return d.y; };
+            var merged = d3.merge(seriesData);
+
+            var dataValuesLength = data[0] ? data[0].values.length : 0;
+
+            // Setup Scales
+            x.domain(xDomain || d3.extent(merged.map(_getX).concat(forceX) ).filter(function (el) { return el !== undefined }));
+
+            // TODO: multichart with historicalBar will throw when data is empty
             if (padData)
-                x.range(xRange || [availableWidth * .5 / data[0].values.length, availableWidth * (data[0].values.length - .5)  / data[0].values.length ]);
+                x.range(xRange || [availableWidth * .5 / dataValuesLength, availableWidth * (dataValuesLength - .5)  / dataValuesLength ]);
             else
                 x.range(xRange || [0, availableWidth]);
 
-            y.domain(yDomain || d3.extent(data[0].values.map(getY).concat(forceY) ))
+            y.domain(yDomain || d3.extent(merged.map(_getY).concat(forceY) ))
                 .range(yRange || [availableHeight, 0]);
 
             // If scale's domain don't have a range, slightly adjust to make one... so a chart can show a single data point
@@ -5538,7 +5554,7 @@ nv.models.historicalBar = function() {
                     : y.domain([-1,1]);
 
             // Setup containers and skeleton of chart
-            var wrap = container.selectAll('g.nv-wrap.nv-historicalBar-' + id).data([data[0].values]);
+            var wrap = container.selectAll('g.nv-wrap.nv-historicalBar-' + id).data([data]);
             var wrapEnter = wrap.enter().append('g').attr('class', 'nvd3 nv-wrap nv-historicalBar-' + id);
             var defsEnter = wrapEnter.append('defs');
             var gEnter = wrapEnter.append('g');
@@ -5568,12 +5584,12 @@ nv.models.historicalBar = function() {
             g.attr('clip-path', clipEdge ? 'url(#nv-chart-clip-path-' + id + ')' : '');
 
             var bars = wrap.select('.nv-bars').selectAll('.nv-bar')
-                .data(function(d) { return d }, function(d,i) {return getX(d,i)});
+                .data(function(d) { return d[0] ? d[0].values: []; });
             bars.exit().remove();
 
             bars.enter().append('rect')
                 .attr('x', 0 )
-                .attr('y', function(d,i) {  return nv.utils.NaNtoZero(y(Math.max(0, getY(d,i)))) })
+                .attr('y', function(d,i) { return nv.utils.NaNtoZero(y(Math.max(0, getY(d,i)))) })
                 .attr('height', function(d,i) { return nv.utils.NaNtoZero(Math.abs(y(getY(d,i)) - y(0))) })
                 .attr('transform', function(d,i) { return 'translate(' + (x(getX(d,i)) - availableWidth / data[0].values.length * .45) + ',0)'; })
                 .on('mouseover', function(d,i) {
@@ -5628,10 +5644,9 @@ nv.models.historicalBar = function() {
             bars
                 .attr('fill', function(d,i) { return color(d, i); })
                 .attr('class', function(d,i,j) { return (getY(d,i) < 0 ? 'nv-bar negative' : 'nv-bar positive') + ' nv-bar-' + j + '-' + i })
-                .watchTransition(renderWatch, 'bars')
-                .attr('transform', function(d,i) { return 'translate(' + (x(getX(d,i)) - availableWidth / data[0].values.length * .45) + ',0)'; })
+                .attr('transform', function(d,i) { return 'translate(' + (x(getX(d,i)) - availableWidth / dataValuesLength * .45) + ',0)'; })
                 //TODO: better width calculations that don't assume always uniform data spacing;w
-                .attr('width', (availableWidth / data[0].values.length) * .9 );
+                .attr('width', (availableWidth / dataValuesLength) * .9 );
 
             bars.watchTransition(renderWatch, 'bars')
                 .attr('y', function(d,i) {
@@ -6129,6 +6144,7 @@ nv.models.legend = function() {
         , padding = 32 //define how much space between legend items. - recommend 32 for furious version
         , rightAlign = true
         , updateState = true   //If true, legend will update data.disabled and trigger a 'stateChange' dispatch.
+        , enableDoubleClick = true   //If true, legend will enable double click handling
         , radioButtonMode = false   //If true, clicking legend items will cause it to behave like a radio button. (only one can be selected at a time)
         , expanded = false
         , dispatch = d3.dispatch('legendClick', 'legendDblclick', 'legendMouseover', 'legendMouseout', 'stateChange')
@@ -6261,22 +6277,26 @@ nv.models.legend = function() {
                     }
                 })
                 .on('dblclick', function(d,i) {
-                    if(vers == 'furious' && expanded) return;
-                    dispatch.legendDblclick(d,i);
-                    if (updateState) {
-                        // make sure we re-get data in case it was modified
-                        var data = series.data();
-                        //the default behavior of NVD3 legends, when double clicking one,
-                        // is to set all other series' to false, and make the double clicked series enabled.
-                        data.forEach(function(series) {
-                            series.disabled = true;
-                            if(vers == 'furious') series.userDisabled = series.disabled;
-                        });
-                        d.disabled = false;
-                        if(vers == 'furious') d.userDisabled = d.disabled;
-                        dispatch.stateChange({
-                            disabled: data.map(function(d) { return !!d.disabled })
-                        });
+                    if (enableDoubleClick) {
+                        if (vers == 'furious' && expanded) return;
+                        dispatch.legendDblclick(d, i);
+                        if (updateState) {
+                            // make sure we re-get data in case it was modified
+                            var data = series.data();
+                            //the default behavior of NVD3 legends, when double clicking one,
+                            // is to set all other series' to false, and make the double clicked series enabled.
+                            data.forEach(function (series) {
+                                series.disabled = true;
+                                if (vers == 'furious') series.userDisabled = series.disabled;
+                            });
+                            d.disabled = false;
+                            if (vers == 'furious') d.userDisabled = d.disabled;
+                            dispatch.stateChange({
+                                disabled: data.map(function (d) {
+                                    return !!d.disabled
+                                })
+                            });
+                        }
                     }
                 });
 
@@ -6475,6 +6495,7 @@ nv.models.legend = function() {
         rightAlign:     {get: function(){return rightAlign;}, set: function(_){rightAlign=_;}},
         padding:        {get: function(){return padding;}, set: function(_){padding=_;}},
         updateState:    {get: function(){return updateState;}, set: function(_){updateState=_;}},
+        enableDoubleClick: {get: function(){return enableDoubleClick;}, set: function(_){enableDoubleClick=_;}},
         radioButtonMode:{get: function(){return radioButtonMode;}, set: function(_){radioButtonMode=_;}},
         expanded:       {get: function(){return expanded;}, set: function(_){expanded=_;}},
         vers:           {get: function(){return vers;}, set: function(_){vers=_;}},
@@ -6886,8 +6907,10 @@ nv.models.lineChart = function() {
                     .call(legend);
 
                 if (legendPosition === 'bottom') {
-                    wrap.select('.nv-legendWrap')
-                        .attr('transform', 'translate(0,' + availableHeight +')');
+                     margin.bottom = xAxis.height() + legend.height();
+                     availableHeight = nv.utils.availableHeight(height, container, margin);
+                     g.select('.nv-legendWrap')
+                         .attr('transform', 'translate(0,' + (availableHeight + xAxis.height())  +')');
                 } else if (legendPosition === 'top') {
                     if (!marginTop && legend.height() !== margin.top) {
                         margin.top = legend.height();
@@ -9645,7 +9668,7 @@ nv.models.multiBarHorizontalChart = function() {
 
     return chart;
 };
-nv.models.multiChart = function() {
+nv.models.multiChart = function () {
     "use strict";
 
     //============================================================
@@ -9685,8 +9708,10 @@ nv.models.multiChart = function() {
         scatters1 = nv.models.scatter().yScale(yScale1).duration(duration),
         scatters2 = nv.models.scatter().yScale(yScale2).duration(duration),
 
-        bars1 = nv.models.multiBar().stacked(false).yScale(yScale1).duration(duration),
-        bars2 = nv.models.multiBar().stacked(false).yScale(yScale2).duration(duration),
+        barsModel,
+
+        bars1 = getBarModel(yScale1),
+        bars2 = getBarModel(yScale2),
 
         stack1 = nv.models.stackedArea().yScale(yScale1).duration(duration),
         stack2 = nv.models.stackedArea().yScale(yScale2).duration(duration),
@@ -9701,6 +9726,18 @@ nv.models.multiChart = function() {
 
     var charts = [lines1, lines2, scatters1, scatters2, bars1, bars2, stack1, stack2];
 
+    function getBarModel(yScale) {
+        var model;
+
+        if (typeof barsModel === 'function') {
+            model = barsModel();
+        } else {
+            model = nv.models.multiBar().stacked(false).duration(duration);
+        }
+
+        return model.yScale(yScale);
+    }
+
     function chart(selection) {
         selection.each(function(data) {
             var container = d3.select(this),
@@ -9713,6 +9750,11 @@ nv.models.multiChart = function() {
             var availableWidth = nv.utils.availableWidth(width, container, margin),
                 availableHeight = nv.utils.availableHeight(height, container, margin);
 
+            charts.forEach(function (chart) {
+                chart.x(getX);
+                chart.y(getY);
+            });
+
             var dataLines1 = data.filter(function(d) {return d.type == 'line' && d.yAxis == 1});
             var dataLines2 = data.filter(function(d) {return d.type == 'line' && d.yAxis == 2});
             var dataScatters1 = data.filter(function(d) {return d.type == 'scatter' && d.yAxis == 1});
@@ -9722,6 +9764,15 @@ nv.models.multiChart = function() {
             var dataStack1 = data.filter(function(d) {return d.type == 'area' && d.yAxis == 1});
             var dataStack2 = data.filter(function(d) {return d.type == 'area' && d.yAxis == 2});
 
+            // fixes tooltips for bar models other than multibar
+            data.forEach(function(series, i) {
+                series.values.forEach(function(point) {
+                    point.series = i;
+                    point.key = series.key;
+                });
+            });
+
+            // TODO: duplicate in linePlusBarChart.js#
             // Display noData message if there's nothing to show.
             if (!data || !data.length || !data.filter(function(d) { return d.values.length }).length) {
                 nv.utils.noData(chart, container);
@@ -10163,9 +10214,20 @@ nv.models.multiChart = function() {
 
     chart._options = Object.create({}, {
         // simple options, just get/set the necessary values
+        barsModel: {get: function(){return barsModel}, set: function(_){
+            var bars1Idx = charts.indexOf(bars1),
+                bars2Idx = charts.indexOf(bars2);
+
+            barsModel = _;
+            bars1 = getBarModel(yScale1);
+            bars2 = getBarModel(yScale2);
+            charts.splice(bars1Idx, bars1Idx + 1, bars1);
+            charts.splice(bars2Idx, bars2Idx + 1, bars2);
+        }},
         width:      {get: function(){return width;}, set: function(_){width=_;}},
         height:     {get: function(){return height;}, set: function(_){height=_;}},
         showLegend: {get: function(){return showLegend;}, set: function(_){showLegend=_;}},
+        xScale: {get: function(){return x;}, set: function(_){ x = _; xAxis.scale(x); }},
         yDomain1:      {get: function(){return yDomain1;}, set: function(_){yDomain1=_;}},
         yDomain2:    {get: function(){return yDomain2;}, set: function(_){yDomain2=_;}},
         noData:    {get: function(){return noData;}, set: function(_){noData=_;}},
@@ -10187,25 +10249,9 @@ nv.models.multiChart = function() {
         }},
         x: {get: function(){return getX;}, set: function(_){
             getX = _;
-            lines1.x(_);
-            lines2.x(_);
-            scatters1.x(_);
-            scatters2.x(_);
-            bars1.x(_);
-            bars2.x(_);
-            stack1.x(_);
-            stack2.x(_);
         }},
         y: {get: function(){return getY;}, set: function(_){
             getY = _;
-            lines1.y(_);
-            lines2.y(_);
-            scatters1.y(_);
-            scatters2.y(_);
-            stack1.y(_);
-            stack2.y(_);
-            bars1.y(_);
-            bars2.y(_);
         }},
         useVoronoi: {get: function(){return useVoronoi;}, set: function(_){
             useVoronoi=_;
@@ -12668,7 +12714,7 @@ nv.models.scatter = function() {
                 .range(sizeRange || _sizeRange_def);
 
             // If scale's domain don't have a range, slightly adjust to make one... so a chart can show a single data point
-            singlePoint = x.domain()[0] === x.domain()[1] || y.domain()[0] === y.domain()[1];
+            singlePoint = x.domain()[0] === x.domain()[1] && y.domain()[0] === y.domain()[1];
 
             if (x.domain()[0] === x.domain()[1])
                 x.domain()[0] ?
@@ -12743,6 +12789,10 @@ nv.models.scatter = function() {
 
                 // inject series and point index for reference into voronoi
                 if (useVoronoi === true) {
+                    
+                    // nuke all voronoi paths on reload and recreate them
+                    wrap.select('.nv-point-paths').selectAll('path').remove();
+                    
                     var vertices = d3.merge(data.map(function(group, groupIndex) {
                             return group.values
                                 .map(function(point, pointIndex) {
@@ -12790,8 +12840,6 @@ nv.models.scatter = function() {
                         }
                     });
 
-                    // nuke all voronoi paths on reload and recreate them
-                    wrap.select('.nv-point-paths').selectAll('path').remove();
                     var pointPaths = wrap.select('.nv-point-paths').selectAll('path').data(voronoi);
                     var vPointPaths = pointPaths
                         .enter().append("svg:path")
@@ -12849,16 +12897,18 @@ nv.models.scatter = function() {
                             top: y(getY(point, d.point)) + box.top + scrollTop + margin.top + 10
                         };
 
-                        mDispatch({
-                            point: point,
-                            series: series,
-                            pos: pos,
-                            relativePos: [x(getX(point, d.point)) + margin.left, y(getY(point, d.point)) + margin.top],
-                            seriesIndex: d.series,
-                            pointIndex: d.point,
-                            event: d3.event,
-                            element: el
-                        });
+                        if (point.value !== undefined) {
+                            mDispatch({
+                                point: point,
+                                series: series,
+                                pos: pos,
+                                relativePos: [x(getX(point, d.point)) + margin.left, y(getY(point, d.point)) + margin.top],
+                                seriesIndex: d.series,
+                                pointIndex: d.point,
+                                event: d3.event,
+                                element: el
+                            });
+                        }
                     };
 
                     pointPaths
@@ -15460,6 +15510,6 @@ nv.models.sunburstChart = function() {
 
 };
 
-nv.version = "1.8.5-dev";
+nv.version = "1.8.5-dev.20170131";
 })();
 //# sourceMappingURL=nv.d3.js.map
