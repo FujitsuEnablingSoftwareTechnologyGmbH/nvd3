@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.5-dev.20170131 (https://github.com/novus/nvd3) 2017-01-31 */
+/* nvd3 version 1.8.5-dev.20170202 (https://github.com/novus/nvd3) 2017-02-02 */
 (function(){
 
 // set up main nv object
@@ -5481,7 +5481,8 @@ nv.models.historicalBar = function() {
     // Public Variables with Default Settings
     //------------------------------------------------------------
 
-    var margin = {top: 0, right: 0, bottom: 0, left: 0}
+    var allowEmptyData = false
+        , margin = {top: 0, right: 0, bottom: 0, left: 0}
         , width = null
         , height = null
         , id = Math.floor(Math.random() * 10000) //Create semi-unique ID in case user doesn't select one
@@ -5657,7 +5658,13 @@ nv.models.historicalBar = function() {
                         y(getY(d,i));
                     return nv.utils.NaNtoZero(rval);
                 })
-                .attr('height', function(d,i) { return nv.utils.NaNtoZero(Math.max(Math.abs(y(getY(d,i)) - y(0)),1)) });
+                .attr('height', function(d,i) {
+                    var value = getY(d,i);
+
+                    if (value === null && allowEmptyData) return value;
+
+                    return nv.utils.NaNtoZero(Math.max(Math.abs(y(value) - y(0)),1))
+                });
 
         });
 
@@ -5688,6 +5695,7 @@ nv.models.historicalBar = function() {
     chart.options = nv.utils.optionsFunc.bind(chart);
 
     chart._options = Object.create({}, {
+        allowEmptyData: {get: function(){return allowEmptyData;}, set: function(_){allowEmptyData=_;}},
         // simple options, just get/set the necessary values
         width:   {get: function(){return width;}, set: function(_){width=_;}},
         height:  {get: function(){return height;}, set: function(_){height=_;}},
@@ -7352,6 +7360,7 @@ nv.models.linePlusBarChart = function() {
         , legendLeftAxisHint = ' (left axis)'
         , legendRightAxisHint = ' (right axis)'
         , switchYAxisOrder = false
+        , staggerLabels = false
         ;
 
     lines.clipEdge(true);
@@ -7788,6 +7797,28 @@ nv.models.linePlusBarChart = function() {
                 g.select('.nv-focus .nv-x.nv-axis')
                     .attr('transform', 'translate(0,' + y1.range()[0] + ')');
 
+                if (staggerLabels) {
+                    var xTicks = g.select('.nv-x.nv-axis > g').selectAll('g');
+
+                    var getTranslate = function(x,y) {
+                        return "translate(" + x + "," + y + ")";
+                    };
+
+                    var staggerUp = 5, staggerDown = 25;  //pixels to stagger by
+                    // Issue #140
+                    xTicks
+                        .selectAll("text")
+                        .attr('transform', function(d,i,j) {
+                            return  getTranslate(0, (j % 2 === 0 ? staggerUp : staggerDown));
+                        });
+
+                    var totalInBetweenTicks = d3.selectAll(".nv-x.nv-axis .nv-wrap g g text")[0].length;
+                    g.selectAll(".nv-x.nv-axis .nv-axisMaxMin text")
+                        .attr("transform", function(d,i) {
+                            return getTranslate(0, (i === 0 || totalInBetweenTicks % 2 !== 0) ? staggerDown : staggerUp);
+                        });
+                }
+
                 y1Axis
                     .scale(y1)
                     ._ticks( nv.utils.calcTicksY(availableHeight1/36, data) )
@@ -7907,6 +7938,7 @@ nv.models.linePlusBarChart = function() {
         focusShowAxisY:    {get: function(){return focusShowAxisY;}, set: function(_){focusShowAxisY=_;}},
         legendLeftAxisHint:    {get: function(){return legendLeftAxisHint;}, set: function(_){legendLeftAxisHint=_;}},
         legendRightAxisHint:    {get: function(){return legendRightAxisHint;}, set: function(_){legendRightAxisHint=_;}},
+        staggerLabels:    {get: function(){return staggerLabels;}, set: function(_){staggerLabels=_;}},
 
         // options that require extra logic in the setter
         margin: {get: function(){return margin;}, set: function(_){
@@ -9708,6 +9740,7 @@ nv.models.multiChart = function () {
         scatters1 = nv.models.scatter().yScale(yScale1).duration(duration),
         scatters2 = nv.models.scatter().yScale(yScale2).duration(duration),
 
+        allowEmptyData = false,
         barsModel,
 
         bars1 = getBarModel(yScale1),
@@ -9731,6 +9764,9 @@ nv.models.multiChart = function () {
 
         if (typeof barsModel === 'function') {
             model = barsModel();
+
+            if (typeof model.allowEmptyData == 'function')
+                model = model.allowEmptyData(allowEmptyData)
         } else {
             model = nv.models.multiBar().stacked(false).duration(duration);
         }
@@ -10047,10 +10083,13 @@ nv.models.multiChart = function () {
 
             function mouseover_bar(evt) {
                 var yaxis = data[evt.data.series].yAxis === 2 ? yAxis2 : yAxis1;
+                var value = bars1.y()(evt.data);
+
+                if (value === null) return;
 
                 evt.value = bars1.x()(evt.data);
                 evt['series'] = {
-                    value: bars1.y()(evt.data),
+                    value: value,
                     color: evt.color,
                     key: evt.data.key
                 };
@@ -10213,6 +10252,7 @@ nv.models.multiChart = function () {
     chart.options = nv.utils.optionsFunc.bind(chart);
 
     chart._options = Object.create({}, {
+        allowEmptyData: {get function(){return allowEmptyData;}, set: function(_){allowEmptyData=_}},
         // simple options, just get/set the necessary values
         barsModel: {get: function(){return barsModel}, set: function(_){
             var bars1Idx = charts.indexOf(bars1),
@@ -15510,6 +15550,6 @@ nv.models.sunburstChart = function() {
 
 };
 
-nv.version = "1.8.5-dev.20170131";
+nv.version = "1.8.5-dev.20170202";
 })();
 //# sourceMappingURL=nv.d3.js.map
