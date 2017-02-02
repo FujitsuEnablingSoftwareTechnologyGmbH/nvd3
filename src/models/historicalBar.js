@@ -6,7 +6,8 @@ nv.models.historicalBar = function() {
     // Public Variables with Default Settings
     //------------------------------------------------------------
 
-    var margin = {top: 0, right: 0, bottom: 0, left: 0}
+    var allowEmptyData = false
+        , margin = {top: 0, right: 0, bottom: 0, left: 0}
         , width = null
         , height = null
         , id = Math.floor(Math.random() * 10000) //Create semi-unique ID in case user doesn't select one
@@ -182,7 +183,13 @@ nv.models.historicalBar = function() {
                         y(getY(d,i));
                     return nv.utils.NaNtoZero(rval);
                 })
-                .attr('height', function(d,i) { return nv.utils.NaNtoZero(Math.max(Math.abs(y(getY(d,i)) - y(0)),1)) });
+                .attr('height', function(d,i) {
+                    var value = getY(d,i);
+
+                    if (value === null && allowEmptyData) return value;
+
+                    return nv.utils.NaNtoZero(Math.max(Math.abs(y(value) - y(0)),1))
+                });
 
         });
 
@@ -213,6 +220,7 @@ nv.models.historicalBar = function() {
     chart.options = nv.utils.optionsFunc.bind(chart);
 
     chart._options = Object.create({}, {
+        allowEmptyData: {get: function(){return allowEmptyData;}, set: function(_){allowEmptyData=_;}},
         // simple options, just get/set the necessary values
         width:   {get: function(){return width;}, set: function(_){width=_;}},
         height:  {get: function(){return height;}, set: function(_){height=_;}},

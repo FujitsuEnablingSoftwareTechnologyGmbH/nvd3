@@ -38,6 +38,7 @@ nv.models.multiChart = function () {
         scatters1 = nv.models.scatter().yScale(yScale1).duration(duration),
         scatters2 = nv.models.scatter().yScale(yScale2).duration(duration),
 
+        allowEmptyData = false,
         barsModel,
 
         bars1 = getBarModel(yScale1),
@@ -61,6 +62,9 @@ nv.models.multiChart = function () {
 
         if (typeof barsModel === 'function') {
             model = barsModel();
+
+            if (typeof model.allowEmptyData == 'function')
+                model = model.allowEmptyData(allowEmptyData)
         } else {
             model = nv.models.multiBar().stacked(false).duration(duration);
         }
@@ -377,10 +381,13 @@ nv.models.multiChart = function () {
 
             function mouseover_bar(evt) {
                 var yaxis = data[evt.data.series].yAxis === 2 ? yAxis2 : yAxis1;
+                var value = bars1.y()(evt.data);
+
+                if (value === null) return;
 
                 evt.value = bars1.x()(evt.data);
                 evt['series'] = {
-                    value: bars1.y()(evt.data),
+                    value: value,
                     color: evt.color,
                     key: evt.data.key
                 };
@@ -543,6 +550,7 @@ nv.models.multiChart = function () {
     chart.options = nv.utils.optionsFunc.bind(chart);
 
     chart._options = Object.create({}, {
+        allowEmptyData: {get function(){return allowEmptyData;}, set: function(_){allowEmptyData=_}},
         // simple options, just get/set the necessary values
         barsModel: {get: function(){return barsModel}, set: function(_){
             var bars1Idx = charts.indexOf(bars1),
