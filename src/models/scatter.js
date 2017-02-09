@@ -24,7 +24,7 @@ nv.models.scatter = function() {
         , forceY       = [] // List of numbers to Force into the Y scale
         , forceSize    = [] // List of numbers to Force into the Size scale
         , interactive  = true // If true, plots a voronoi overlay for advanced point intersection
-        , pointActive  = function(d) { return !d.notActive } // any points that return false will be filtered out
+        , pointActive  = function(d) { return !d.notActive && d.value !== undefined } // any points that return false will be filtered out
         , padData      = false // If true, adds half a data points width to front and back, for lining up a line chart with a bar chart
         , padDataOuter = .1 //outerPadding to imitate ordinal scale outer padding
         , clipEdge     = false // if true, masks points within x and y scale
@@ -142,7 +142,9 @@ nv.models.scatter = function() {
                 .range(sizeRange || _sizeRange_def);
 
             // If scale's domain don't have a range, slightly adjust to make one... so a chart can show a single data point
-            singlePoint = x.domain()[0] === x.domain()[1] && y.domain()[0] === y.domain()[1];
+            singlePoint = seriesData.filter(function(series) {
+                return series.y !== undefined && series.y !== null;
+            }).length === 1 ? true : false;
 
             if (x.domain()[0] === x.domain()[1])
                 x.domain()[0] ?
