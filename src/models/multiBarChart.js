@@ -39,11 +39,12 @@ nv.models.multiBarChart = function() {
         , controlWidth = function() { return showControls ? 180 : 0 }
         , duration = 250
         , useInteractiveGuideline = false
+        , stacked = false
         ;
 
-    state.stacked = false // DEPRECATED Maintained for backward compatibility
+    state.stacked = stacked;// DEPRECATED Maintained for backward compatibility
 
-    multibar.stacked(false);
+    multibar.stacked(stacked);
     xAxis
         .orient('bottom')
         .tickPadding(7)
@@ -96,7 +97,6 @@ nv.models.multiBarChart = function() {
     //------------------------------------------------------------
 
     var renderWatch = nv.utils.renderWatch(dispatch);
-    var stacked = false;
 
     var stateGetter = function(data) {
         return function(){
@@ -119,6 +119,10 @@ nv.models.multiBarChart = function() {
     };
 
     function chart(selection) {
+        // Needed here, because after each chart.update() this method was called with old stacked value
+        state.stacked = stacked;// DEPRECATED Maintained for backward compatibility
+        multibar.stacked(stacked);
+        
         renderWatch.reset();
         renderWatch.models(multibar);
         if (showXAxis) renderWatch.models(xAxis);
@@ -485,6 +489,7 @@ nv.models.multiBarChart = function() {
         rotateLabels:    {get: function(){return rotateLabels;}, set: function(_){rotateLabels=_;}},
         staggerLabels:    {get: function(){return staggerLabels;}, set: function(_){staggerLabels=_;}},
         wrapLabels:   {get: function(){return wrapLabels;}, set: function(_){wrapLabels=!!_;}},
+        stacked:      {get: function(){return stacked;}, set: function(_){stacked=!!_;}},
 
         // options that require extra logic in the setter
         margin: {get: function(){return margin;}, set: function(_){
