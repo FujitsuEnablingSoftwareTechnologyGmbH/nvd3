@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.5-dev.20170202 (https://github.com/novus/nvd3) 2017-02-02 */
+/* nvd3 version 1.8.5-dev.20170202 (https://github.com/novus/nvd3) 2017-02-10 */
 (function(){
 
 // set up main nv object
@@ -8473,11 +8473,12 @@ nv.models.multiBarChart = function() {
         , controlWidth = function() { return showControls ? 180 : 0 }
         , duration = 250
         , useInteractiveGuideline = false
+        , stacked = false
         ;
 
-    state.stacked = false // DEPRECATED Maintained for backward compatibility
+    state.stacked = stacked;// DEPRECATED Maintained for backward compatibility
 
-    multibar.stacked(false);
+    multibar.stacked(stacked);
     xAxis
         .orient('bottom')
         .tickPadding(7)
@@ -8530,7 +8531,6 @@ nv.models.multiBarChart = function() {
     //------------------------------------------------------------
 
     var renderWatch = nv.utils.renderWatch(dispatch);
-    var stacked = false;
 
     var stateGetter = function(data) {
         return function(){
@@ -8553,6 +8553,10 @@ nv.models.multiBarChart = function() {
     };
 
     function chart(selection) {
+        // Needed here, because after each chart.update() this method was called with old stacked value
+        state.stacked = stacked;// DEPRECATED Maintained for backward compatibility
+        multibar.stacked(stacked);
+        
         renderWatch.reset();
         renderWatch.models(multibar);
         if (showXAxis) renderWatch.models(xAxis);
@@ -8919,6 +8923,7 @@ nv.models.multiBarChart = function() {
         rotateLabels:    {get: function(){return rotateLabels;}, set: function(_){rotateLabels=_;}},
         staggerLabels:    {get: function(){return staggerLabels;}, set: function(_){staggerLabels=_;}},
         wrapLabels:   {get: function(){return wrapLabels;}, set: function(_){wrapLabels=!!_;}},
+        stacked:      {get: function(){return stacked;}, set: function(_){stacked=!!_;}},
 
         // options that require extra logic in the setter
         margin: {get: function(){return margin;}, set: function(_){
@@ -12636,7 +12641,7 @@ nv.models.scatter = function() {
         , forceY       = [] // List of numbers to Force into the Y scale
         , forceSize    = [] // List of numbers to Force into the Size scale
         , interactive  = true // If true, plots a voronoi overlay for advanced point intersection
-        , pointActive  = function(d) { return !d.notActive } // any points that return false will be filtered out
+        , pointActive  = function(d) { return !d.notActive && d.value !== undefined } // any points that return false will be filtered out
         , padData      = false // If true, adds half a data points width to front and back, for lining up a line chart with a bar chart
         , padDataOuter = .1 //outerPadding to imitate ordinal scale outer padding
         , clipEdge     = false // if true, masks points within x and y scale
@@ -12754,7 +12759,9 @@ nv.models.scatter = function() {
                 .range(sizeRange || _sizeRange_def);
 
             // If scale's domain don't have a range, slightly adjust to make one... so a chart can show a single data point
-            singlePoint = x.domain()[0] === x.domain()[1] && y.domain()[0] === y.domain()[1];
+            singlePoint = seriesData.filter(function(series) {
+                return series.y !== undefined && series.y !== null;
+            }).length === 1 ? true : false;
 
             if (x.domain()[0] === x.domain()[1])
                 x.domain()[0] ?
