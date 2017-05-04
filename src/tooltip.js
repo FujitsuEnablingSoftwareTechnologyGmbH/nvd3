@@ -260,7 +260,9 @@ nv.models.tooltip = function() {
 
     // Creates new tooltip container, or uses existing one on DOM.
     function initTooltip() {
-        if (!tooltip || !tooltip.node()) {
+        var ifTooltipInDOM = document.getElementById(id);
+
+        if (!tooltip || !tooltip.node() || !ifTooltipInDOM) {
             // Create new tooltip div if it doesn't exist on DOM.
 
             var data = [1];
