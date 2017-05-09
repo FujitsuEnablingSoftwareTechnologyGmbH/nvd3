@@ -39,7 +39,7 @@ nv.models.scatter = function() {
         , sizeRange    = null
         , singlePoint  = false
         , dispatch     = d3.dispatch('elementClick', 'elementDblClick', 'elementMouseover', 'elementMouseout', 'renderEnd')
-        , useVoronoi   = true
+        , useVoronoi   = false
         , duration     = 250
         , interactiveUpdateDelay = 300
         , showLabels    = false
@@ -357,6 +357,7 @@ nv.models.scatter = function() {
 
                 } else {
                     // add event handlers to points instead voronoi paths
+                    var dataReference = data;
                     wrap.select('.nv-groups').selectAll('.nv-group')
                         .selectAll('.nv-point')
                         //.data(dataWithPoints)
@@ -393,33 +394,41 @@ nv.models.scatter = function() {
                             });
                         })
                         .on('mouseover', function(d,i) {
-                            if (needsUpdate || !data[d.series]) return 0; //check if this is a dummy point
-                            var series = data[d.series],
-                                point  = series.values[i];
+                            var seriesIndex = d.series || d[0].series;
+                            var pointSeries = d.series ? d : d[0];
+
+                            if (needsUpdate || seriesIndex === undefined) return 0; //check if this is a dummy point
+                            var series = dataReference[seriesIndex],
+                                point  = series.values ? series.values[i] : series.value;
+                            point.color = color(series, seriesIndex);
 
                             dispatch.elementMouseover({
                                 point: point,
                                 series: series,
                                 pos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],//TODO: make this pos base on the page
                                 relativePos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],
-                                seriesIndex: d.series,
+                                seriesIndex: seriesIndex,
                                 pointIndex: i,
-                                color: color(d, i)
+                                color: color(pointSeries, i)
                             });
                         })
                         .on('mouseout', function(d,i) {
-                            if (needsUpdate || !data[d.series]) return 0; //check if this is a dummy point
-                            var series = data[d.series],
-                                point  = series.values[i];
+                            var seriesIndex = d.series || d[0].series;
+                            var pointSeries = d.series ? d : d[0];
+
+                            if (needsUpdate || seriesIndex === undefined) return 0; //check if this is a dummy point
+                            var series = dataReference[seriesIndex],
+                                point  = series.values ? series.values[i] : series.value;
+                            point.color = color(series, seriesIndex);
 
                             dispatch.elementMouseout({
                                 point: point,
                                 series: series,
                                 pos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],//TODO: make this pos base on the page
                                 relativePos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],
-                                seriesIndex: d.series,
+                                seriesIndex: seriesIndex,
                                 pointIndex: i,
-                                color: color(d, i)
+                                color: color(pointSeries, i)
                             });
                         });
                 }
