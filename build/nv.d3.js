@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.5-dev.20170202 (https://github.com/novus/nvd3) 2017-02-10 */
+/* nvd3 version 1.8.5-dev.20170210 (https://github.com/novus/nvd3) 2017-05-11 */
 (function(){
 
 // set up main nv object
@@ -778,7 +778,9 @@ nv.models.tooltip = function() {
 
     // Creates new tooltip container, or uses existing one on DOM.
     function initTooltip() {
-        if (!tooltip || !tooltip.node()) {
+        var ifTooltipInDOM = document.getElementById(id);
+
+        if (!tooltip || !tooltip.node() || !ifTooltipInDOM) {
             // Create new tooltip div if it doesn't exist on DOM.
 
             var data = [1];
@@ -11943,6 +11945,28 @@ nv.models.pieChart = function() {
                     availableHeight = nv.utils.availableHeight(height, container, margin);
                     wrap.select('.nv-legendWrap')
                         .attr('transform', 'translate(0,' + availableHeight +')');
+                } else if (legendPosition === 'middleRight') {
+                    var legendWidth = data.length > 2 ?
+                        nv.models.legend().width() :
+                        wrap.select('.nv-legendWrap').node().getBoundingClientRect().width;
+                    var translateX = 0;
+                    var halfOfAvailableWidth = availableWidth / 2;
+                    var pieChartWidth = availableHeight;
+
+                    if (availableWidth < legendWidth) {
+                        legendWidth = (availableWidth / 2)
+                    }
+
+                    legend.height(availableHeight).key(pie.x());
+                    legend.width(legendWidth);
+
+                    translateX = (halfOfAvailableWidth - legendWidth) / 2;
+                    translateX += halfOfAvailableWidth + pieChartWidth / 4;
+
+                    wrap.select('.nv-legendWrap')
+                        .datum(data)
+                        .call(legend)
+                        .attr('transform', 'translate(' + (translateX) +',0)');
                 }
             }
             wrap.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
@@ -12656,7 +12680,7 @@ nv.models.scatter = function() {
         , sizeRange    = null
         , singlePoint  = false
         , dispatch     = d3.dispatch('elementClick', 'elementDblClick', 'elementMouseover', 'elementMouseout', 'renderEnd')
-        , useVoronoi   = true
+        , useVoronoi   = false
         , duration     = 250
         , interactiveUpdateDelay = 300
         , showLabels    = false
@@ -12974,6 +12998,7 @@ nv.models.scatter = function() {
 
                 } else {
                     // add event handlers to points instead voronoi paths
+                    var dataReference = data;
                     wrap.select('.nv-groups').selectAll('.nv-group')
                         .selectAll('.nv-point')
                         //.data(dataWithPoints)
@@ -13010,33 +13035,41 @@ nv.models.scatter = function() {
                             });
                         })
                         .on('mouseover', function(d,i) {
-                            if (needsUpdate || !data[d.series]) return 0; //check if this is a dummy point
-                            var series = data[d.series],
-                                point  = series.values[i];
+                            var seriesIndex = d.series || d[0].series;
+                            var pointSeries = d.series ? d : d[0];
+
+                            if (needsUpdate || seriesIndex === undefined) return 0; //check if this is a dummy point
+                            var series = dataReference[seriesIndex],
+                                point  = series.values ? series.values[i] : series.value;
+                            point.color = color(series, seriesIndex);
 
                             dispatch.elementMouseover({
                                 point: point,
                                 series: series,
                                 pos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],//TODO: make this pos base on the page
                                 relativePos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],
-                                seriesIndex: d.series,
+                                seriesIndex: seriesIndex,
                                 pointIndex: i,
-                                color: color(d, i)
+                                color: color(pointSeries, i)
                             });
                         })
                         .on('mouseout', function(d,i) {
-                            if (needsUpdate || !data[d.series]) return 0; //check if this is a dummy point
-                            var series = data[d.series],
-                                point  = series.values[i];
+                            var seriesIndex = d.series || d[0].series;
+                            var pointSeries = d.series ? d : d[0];
+
+                            if (needsUpdate || seriesIndex === undefined) return 0; //check if this is a dummy point
+                            var series = dataReference[seriesIndex],
+                                point  = series.values ? series.values[i] : series.value;
+                            point.color = color(series, seriesIndex);
 
                             dispatch.elementMouseout({
                                 point: point,
                                 series: series,
                                 pos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],//TODO: make this pos base on the page
                                 relativePos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],
-                                seriesIndex: d.series,
+                                seriesIndex: seriesIndex,
                                 pointIndex: i,
-                                color: color(d, i)
+                                color: color(pointSeries, i)
                             });
                         });
                 }
@@ -15557,6 +15590,6 @@ nv.models.sunburstChart = function() {
 
 };
 
-nv.version = "1.8.5-dev.20170202";
+nv.version = "1.8.5-dev.20170210";
 })();
 //# sourceMappingURL=nv.d3.js.map
