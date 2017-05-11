@@ -149,6 +149,28 @@ nv.models.pieChart = function() {
                     availableHeight = nv.utils.availableHeight(height, container, margin);
                     wrap.select('.nv-legendWrap')
                         .attr('transform', 'translate(0,' + availableHeight +')');
+                } else if (legendPosition === 'middleRight') {
+                    var legendWidth = data.length > 2 ?
+                        nv.models.legend().width() :
+                        wrap.select('.nv-legendWrap').node().getBoundingClientRect().width;
+                    var translateX = 0;
+                    var halfOfAvailableWidth = availableWidth / 2;
+                    var pieChartWidth = availableHeight;
+
+                    if (availableWidth < legendWidth) {
+                        legendWidth = (availableWidth / 2)
+                    }
+
+                    legend.height(availableHeight).key(pie.x());
+                    legend.width(legendWidth);
+
+                    translateX = (halfOfAvailableWidth - legendWidth) / 2;
+                    translateX += halfOfAvailableWidth + pieChartWidth / 4;
+
+                    wrap.select('.nv-legendWrap')
+                        .datum(data)
+                        .call(legend)
+                        .attr('transform', 'translate(' + (translateX) +',0)');
                 }
             }
             wrap.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
