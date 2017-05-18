@@ -400,16 +400,17 @@ nv.models.scatter = function() {
                             if (needsUpdate || seriesIndex === undefined) return 0; //check if this is a dummy point
                             var series = dataReference[seriesIndex],
                                 point  = series.values ? series.values[i] : series.value;
-                            point.color = color(series, seriesIndex);
+                            point.value = pointSeries.value;
 
                             dispatch.elementMouseover({
+                                data: pointSeries,
                                 point: point,
                                 series: series,
                                 pos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],//TODO: make this pos base on the page
                                 relativePos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],
                                 seriesIndex: seriesIndex,
-                                pointIndex: i,
-                                color: color(pointSeries, i)
+                                pointIndex: d[1] || i,
+                                color: color(series, seriesIndex)
                             });
                         })
                         .on('mouseout', function(d,i) {
@@ -419,15 +420,16 @@ nv.models.scatter = function() {
                             if (needsUpdate || seriesIndex === undefined) return 0; //check if this is a dummy point
                             var series = dataReference[seriesIndex],
                                 point  = series.values ? series.values[i] : series.value;
-                            point.color = color(series, seriesIndex);
+                            point.value = pointSeries.value;
 
                             dispatch.elementMouseout({
+                                data: pointSeries,
                                 point: point,
                                 series: series,
                                 pos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],//TODO: make this pos base on the page
                                 relativePos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],
                                 seriesIndex: seriesIndex,
-                                pointIndex: i,
+                                pointIndex: d[1] || i,
                                 color: color(pointSeries, i)
                             });
                         });
