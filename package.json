@@ -4,7 +4,6 @@
   "description": "A reusable charting library written in d3.js",
   "url": "https://github.com/novus/nvd3",
   "main": "build/nv.d3.js",
-  "private": true,
   "scripts": {
     "test": "grunt"
   },
